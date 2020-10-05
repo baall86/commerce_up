@@ -1,0 +1,1235 @@
+<?php
+    /* mebnu implementation */
+    function commerce_up_menu() {
+        $items = array();
+        $items['admin/commerce/commerce_up'] = array(
+            'title' => 'Commerce products updater',
+            'page callback' => 'drupal_get_form',
+            'page arguments' => array('commerce_up_form'),
+            'access callback' => user_has_role(3),
+        );
+    
+        return $items;
+    }
+    /* help page */
+    function commerce_up_help($path, $arg) {
+        switch ($path) {
+            case 'admin/help#commerce_up':
+                return '
+                    <h2>' . t('Purpose') . '</h2>
+                    <p>' .
+                        t('The module is designed to facilitate the work on changing product sets.') .
+                    '</p>
+                    <h2>' . t('Application') . '</h2>
+                    <p>' .
+                        t('Use filters to get a list of products. To change a specific product field, select that field from the list of suggested fields and make your changes. To change all products from the list or selected products, fill in the required action, configure it, and apply. All actions on goods are recorded in the system log.') .
+                    '</p>
+                '; 
+            break;
+        }
+    }
+
+    /* basic form
+    actions with goods take place on this form
+     */
+    function commerce_up_form($form,&$form_state) {
+        $not_support_field_type = array(
+            'image',
+            'file'
+        );
+        drupal_add_js(drupal_get_path('module','commerce_up').'/commerce_up.js');
+        $arr_fields = array(0 => ' - ','type' => t('product type'),'title' => t('product title'),'sku' => t('product sku'),'status' => t('product status'));
+        $fields = db_select('field_config_instance', 'f')
+            ->fields('f',array('field_name','data'))
+            ->condition('entity_type','commerce_product')
+            ->groupBy('field_name')
+            ->execute()
+            ->fetchAll();
+        foreach($fields AS $row) {
+            $finfo = field_info_field($row->field_name);
+            if($finfo['type']!='file' AND $finfo['type']!='image') {
+                $data = unserialize($row->data);
+                $arr_fields[$row->field_name] = "{$data['label']} ({$row->field_name}, {$finfo['type']})";
+            }
+        }
+        asort($arr_fields);
+        if(!isset($form_state['filters'])) $form_state['filters'] = array(0 => array('fname' => 0));
+        $form = array();
+        $form['#parents'] = array();
+        $form['settings'] = array(
+            '#tree' => TRUE,
+            '#prefix' => '<div id="settings_wrapper">',
+            '#suffix' => '</div>',
+        );
+        $form['settings']['filters']['table'] = array(
+            '#tree' => TRUE,
+            '#prefix' => '<div id="settings_filters_wrapper">',
+            '#suffix' => '</div>',
+        );
+        $form['settings']['filters']['table']['header'] = array(
+            '#markup' => '
+            <h2>'.t('Filters for forming a list of products').'</h2>
+                <table>
+                <thead>
+                    <tr>
+                        <th>'.t('Field').'</th>
+                        <th>'.t('Operator').'</th>
+                        <th>'.t('Value').'</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>',
+        );
+        foreach($form_state['filters'] AS $key => $value) {
+            $form['settings']['filters']['table']['item'][$key]['fname'] = array(
+                '#type' => 'select',
+                '#options' => $arr_fields,
+                '#prefix' => '<tr><td>',
+                '#suffix' => '</td>',
+                '#ajax' => array(
+                    'callback' => 'commerce_up_form_filters_update',
+                    'wrapper' => "settings_filters_wrapper",
+                    "progress" => array(
+                        "type" => "none", "message" => "",       		
+                    ),
+                ),
+            );
+            if(isset($form_state['values']) && isset($form_state['values']['settings']['filters']['table']['item'][$key]['fname']) 
+                    && $form_state['values']['settings']['filters']['table']['item'][$key]['fname']) {
+                $fname = isset($form_state['values']['settings']['filters']['table']['item'][$key]['fname']) ? $form_state['values']['settings']['filters']['table']['item'][$key]['fname'] : $form_state['filters'][$key]['fname'];
+                $form_elements = commerce_up_form_filters_elements($fname);
+                $form['settings']['filters']['table']['item'][$key]['operator'] = $form_elements['operator'];
+                $form['settings']['filters']['table']['item'][$key]['value'] = $form_elements['value'];
+            } else {
+                $form['settings']['filters']['table']['item'][$key]['html'] = array(
+                    '#markup' => '<td></td><td></td>'
+                );
+            }
+            $form['settings']['filters']['table']['item'][$key]['action'] = array(
+                '#type' => 'submit',
+                '#value' => '-',
+                '#prefix' => '<td>',
+                '#suffix' => '</td></tr>',
+                '#filter_index' => $key,
+                '#name' => 'filter_del_'.$key,
+                '#submit' => array('commerce_up_form_filter_del'),
+                '#ajax' => array(
+                    'callback' => 'commerce_up_form_filters_update',
+                    'wrapper' => 'settings_filters_wrapper',
+                    "progress" => array(
+                        "type" => "none", "message" => "",       		
+                    ),
+                ), 
+            );
+        }
+        $form['settings']['filters']['table']['footer'] = array(
+            '#markup' => '</tbody></table>',
+        );
+
+
+        $form['settings']['filters']['add'] = array(
+            '#type' => 'submit',
+            '#value' => t('add fulter'),
+            '#submit' => array('commerce_up_form_add_field'),
+            '#ajax' => array(
+                'callback' => 'commerce_up_form_filters_update',
+                'wrapper' => 'settings_filters_wrapper',
+                "progress" => array(
+                    "type" => "none", "message" => "",       		
+                ),
+            ),
+        );
+        $form['settings']['filters']['get_list'] = array(
+            '#type' => 'submit',
+            '#value' => t('get a list of products'),
+            '#submit' => array('commerce_up_form_get_list'),
+            '#ajax' => array(
+                'callback' => 'commerce_up_form_list_update',
+                'wrapper' => 'settings_wrapper',
+                "progress" => array(
+                    "type" => "throbber", "message" => t("loading"),       		
+                ),
+            ),
+            
+        );
+        $form['settings']['filters']['table']['footer'] = array(
+            '#markup' => '</tbody></table>',
+        );
+
+        $form['settings']['product_list'] = array(
+            '#tree' => TRUE,
+            '#prefix' => '<div id="settings_product_list_wrapper">',
+            '#suffix' => '</div>',
+        );
+        
+        if(isset($form_state['list']) && count($form_state['list']['products'])) {
+            foreach($form_state['list']['products'] AS $product) {
+                $product_list[$product->product_id] = $product->title.' ('.$product->sku.')';
+            }
+            $form['settings']['product_list']['checkall'] = array(
+                '#markup' => '<div id="commerce_up_checkall" >
+                    <div>
+                        <a data-select="1" onClick="commerce_up_select_all(1)">'.t('select all').'</a><span> | </span>
+                        <a data-select="0" onClick="commerce_up_select_all(0)">'.t('deselect all').'</a>
+                    </div>
+                </div>'
+            );
+/*             $form['settings']['product_list']['list'] = array(
+                '#title' => t('list of products received'),
+                '#type' => 'checkboxes',
+                '#options' => $product_list,
+                '#default_value' => array_keys($product_list),
+            ); */
+            $form['settings']['product_list']['thead'][0] = array(
+                '#markup' => '<table><thead><tr><th>'.t('product title').'</th>',
+            );
+            $change_product_field = (isset($form_state['values']) && isset($form_state['values']['settings']['product_list']['thead'][1])) ? $form_state['values']['settings']['product_list']['thead'][1] : 0;
+            $arr_fields_tamper = commerce_up_form_get_tamper_field_list($form_state);
+            if(!isset($arr_fields_tamper[$change_product_field])) $arr_fields_tamper[$change_product_field] = '--';
+            $arr_fields_tamper[0] = ' - ';
+            asort($arr_fields_tamper);
+            $form['settings']['product_list']['thead'][1] = array(
+                '#type' => 'select',
+                '#title' => t('field for change'),
+                '#options' => $arr_fields_tamper,
+                '#prefix' => '<th>',
+                '#suffix' => '</th>',
+                '#ajax' => array(
+                    'callback' => 'commerce_up_form_product_list_update',
+                    'wrapper' => 'settings_product_list_wrapper',
+                    "progress" => array(
+                        "type" => "none", "message" => '',       		
+                    ),
+                ),
+                '#default_value' => 0,
+
+            );
+            $form['settings']['product_list']['thead'][2] = array(
+                '#markup' => '<th>'.t('actions').'</th></tr></thead>',
+            );
+            
+            foreach($form_state['list']['products'] AS $product) {
+                $form['settings']['product_list']['tbody'][$product->product_id]['checkbox'] = array(
+                    '#title' => $product->title.' ('.$product->sku.')',
+                    '#type' => 'checkbox',
+                    '#prefix' => '<tr><td>',
+                    '#suffix' => '</td>'
+                );
+                if($change_product_field) {
+                    $form['settings']['product_list']['tbody'][$product->product_id]['td'] = array(
+                        '#markup' => '<td>',
+                    );
+                    //change field form
+                    if($finst = field_info_instance('commerce_product',$change_product_field,$product->type)) {
+                        $finfo = field_info_field($change_product_field);
+                        if(in_array($finfo['type'],$not_support_field_type)) {
+                            $form['settings']['product_list']['tbody'][$product->product_id]['field'] = array(
+                                '#markup' => t('field type'). ' "' . $finfo['type'] . '" ' . t('is not supported') . '</td>',
+                            );
+                        } else {
+                            $fitems = field_get_items('commerce_product', $product, $change_product_field);
+                            $form['settings']['product_list']['tbody'][$product->product_id]['field'] = 
+                            field_default_form(
+                                $product->type,
+                                $product,
+                                $finfo,
+                                $finst,
+                                $product->language,
+                                $fitems,
+                                $form,
+                                $form_state
+                            );
+                            if(isset($form_state['list']) && $form_state['result_type']['key']=='single'
+                            && isset($form_state['list']['result'][$product->product_id]) && $form_state['list']['result'][$product->product_id]) {
+                                $form['settings']['product_list']['tbody'][$product->product_id]['result'] = array(
+                                    '#markup' => t('Product changed').'<br>',
+                                );
+                            }
+                            $form['settings']['product_list']['tbody'][$product->product_id]['change'] = array(
+                                '#type' => 'submit',
+                                '#value' => t('save'),
+                                '#suffix' => '</td>',
+                                '#name' => 'change_'.$product->product_id,
+                                '#product_index' => $product->product_id,
+                                '#submit' => array('commerce_up_form_change_field_product_form'),
+                                '#ajax' => array(
+                                    'callback' => 'commerce_up_form_product_list_update',
+                                    'wrapper' => 'settings_product_list_wrapper',
+                                    "progress" => array(
+                                        "type" => "none", "message" => '',       		
+                                    ),
+                                ),
+                            );
+                        }
+                    } else {
+                        $finfo = field_info_field($change_product_field);
+                        debug($finfo);
+                        $form['settings']['product_list']['tbody'][$product->product_id]['field'] = array(
+                            '#markup' => t('product does not have a selected field') . '</td>'
+                        );
+                    }
+                } else {
+                    $form['settings']['product_list']['tbody'][$product->product_id]['td'] = array(
+                        '#markup' => '<td></td>',
+                    );
+                }
+                $form['settings']['product_list']['tbody'][$product->product_id]['edit'] = array(
+                    '#markup' => '<td>'.l(t('go to editor'),'/admin/commerce/products/'.$product->product_id.'/edit').'</td></tr>',
+                );
+
+            }
+            $form['settings']['product_list']['tfoot'] = array(
+                '#markup' => '</tbody></table>',
+            );
+        }
+    if(isset($form_state['list']) && count($form_state['list']['products'])) {
+        $form['settings']['action'] = array(
+            '#tree' => TRUE,
+            '#prefix' => '<div id="settings_action_wrapper"><h2>'.t('Product list action').'</h2>',
+            '#suffix' => '</div>',
+        );
+            $form['settings']['action']['select'] = array(
+                '#type' => 'select',
+                '#options' => array(
+                    0 => ' - ',
+                    1 => t('change products'),
+                    2 => t('disable products'),
+                    3 => t('enable products'),
+                    4 => t('delete products'),
+                ),
+                '#default_value' => 0,
+                '#ajax' => array(
+                    'callback' => 'commerce_up_form_action_update',
+                    'wrapper' => "settings_action_wrapper",
+                    "progress" => array(
+                        "type" => "none", "message" => "",       		
+                    ),
+                ),
+            );
+    }
+    $action = isset($form_state['values']) && isset($form_state['values']['settings']['action']) ? $form_state['values']['settings']['action']['select'] : 0;
+    if($action==4) {
+        $form['settings']['action']['delete_prods']['text'] = array(
+            '#markup' => '<div><b>'.t('Selected products will be deleted, continue?').'</b></div>'
+        );
+        $form['settings']['action']['delete_prods']['submit'] = array(
+            '#type' => 'submit',
+            '#value' => t('yes, delete'),
+            '#submit' => array('commerce_up_form_action_delete'),
+            '#ajax' => array(
+                //'callback' => 'commerce_up_form_result_update',
+                //'wrapper' => 'result_wrapper',
+                'callback' => 'commerce_up_form_list_update',
+                'wrapper' => 'settings_wrapper',
+                "progress" => array(
+                    "type" => "none", "message" => "",       		
+                ),
+            ), 
+        );
+    } elseif($action==3) {
+        $form['settings']['action']['on_prods']['text'] = array(
+            '#markup' => '<div><b>'.t('Selected products will be enabled, continue?').'</b></div>'
+        );
+        $form['settings']['action']['on_prods']['submit'] = array(
+            '#type' => 'submit',
+            '#value' => t('yes, enable'),
+            '#submit' => array('commerce_up_form_action_enable'),
+            '#ajax' => array(
+                'callback' => 'commerce_up_form_result_update',
+                'wrapper' => 'result_wrapper',
+                "progress" => array(
+                    "type" => "none", "message" => "",       		
+                ),
+            ), 
+        );
+    } elseif($action==2) {
+        $form['settings']['action']['off_prods']['text'] = array(
+            '#markup' => '<div><b>'.t('Selected products will be disabled, continue?').'</b></div>'
+        );
+        $form['settings']['action']['off_prods']['submit'] = array(
+            '#type' => 'submit',
+            '#value' => t('yes, disable'),
+            '#submit' => array('commerce_up_form_action_disable'),
+            '#ajax' => array(
+                'callback' => 'commerce_up_form_result_update',
+                'wrapper' => 'result_wrapper',
+                "progress" => array(
+                    "type" => "none", "message" => "",       		
+                ),
+            ), 
+        );
+    } elseif($action==1) {
+        if(!isset($form_state['tampers'])) $form_state['tampers'] = array(0 => array('fname' => 0));    
+        $form['settings']['action']['tampers']['table'] = array(
+            '#tree' => TRUE,
+            '#prefix' => '<div id="settings_tampers_wrapper">',
+            '#suffix' => '</div>',
+        );
+            $form['settings']['action']['tampers']['table']['header'] = array(
+                '#markup' => '
+                    <table>
+                    <thead>
+                        <tr>
+                            <th>'.t('Field').'</th>
+                            <th>'.t('Operator').'</th>
+                            <th>'.t('Value').'</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>',
+            );
+            foreach($form_state['tampers'] AS $key => $value) {
+
+                $form['settings']['action']['tampers']['table']['item'][$key]['fname'] = array(
+                    '#type' => 'select',
+                    '#options' => $arr_fields_tamper,
+                    '#prefix' => '<tr><td>',
+                    '#suffix' => '</td>',
+                    '#ajax' => array(
+                        'callback' => 'commerce_up_form_tampers_update',
+                        'wrapper' => "settings_tampers_wrapper",
+                        "progress" => array(
+                            "type" => "none", "message" => "",       		
+                        ),
+                    ),
+                );
+                if(isset($form_state['values']) && isset($form_state['values']['settings']['action']['tampers']['table']['item'][$key]['fname']) 
+                        && $form_state['values']['settings']['action']['tampers']['table']['item'][$key]['fname']) {
+                    $fname = isset($form_state['values']['settings']['action']['tampers']['table']['item'][$key]['fname']) ? $form_state['values']['settings']['action']['tampers']['table']['item'][$key]['fname'] : $form_state['tampers'][$key]['fname'];
+                    $form_elements = commerce_up_form_tampers_elements($fname);
+        
+                    $form['settings']['action']['tampers']['table']['item'][$key]['operator'] = $form_elements['operator'];
+                    if($form_elements['multifield']) $form['settings']['action']['tampers']['table']['item'][$key]['multifield'] = $form_elements['multifield'];
+                    $form['settings']['action']['tampers']['table']['item'][$key]['val'] = array(
+                        '#markup' => '<td></td>'
+                    );
+                    if(isset($form_state['values']) && isset($form_state['values']['settings']['action']['tampers']['table']['item'][$key]['operator'])) {
+                        if($form_state['values']['settings']['action']['tampers']['table']['item'][$key]['operator']=='chg' OR $form_state['values']['settings']['action']['tampers']['table']['item'][$key]['operator']=='fkr') {
+                            $form['settings']['action']['tampers']['table']['item'][$key]['val'] = $form_elements['value']; ////!!!!
+                        }
+                    } 
+                } else {
+                    $form['settings']['action']['tampers']['table']['item'][$key]['html'] = array(
+                        '#markup' => '<td></td><td></td>'
+                    );
+                }
+                $form['settings']['action']['tampers']['table']['item'][$key]['action'] = array(
+                    '#type' => 'submit',
+                    '#value' => '-',
+                    '#prefix' => '<td>',
+                    '#suffix' => '</td></tr>',
+                    '#tamper_index' => $key,
+                    '#name' => 'tamper_del_'.$key,
+                    '#submit' => array('commerce_up_form_tamper_del'),
+                    '#ajax' => array(
+                        'callback' => 'commerce_up_form_tampers_update',
+                        'wrapper' => 'settings_tampers_wrapper',
+                        "progress" => array(
+                            "type" => "none", "message" => "",       		
+                        ),
+                    ), 
+                );
+            }
+    
+    
+            $form['settings']['action']['tampers']['table']['footer'] = array(
+                '#markup' => '</tbody></table>',
+            );
+            $form['settings']['action']['tampers']['add'] = array(
+                '#type' => 'submit',
+                '#value' => t('add tamper'),
+                '#submit' => array('commerce_up_form_tamper_add'),
+                '#ajax' => array(
+                    'callback' => 'commerce_up_form_tampers_update',
+                    'wrapper' => 'settings_tampers_wrapper',
+                    "progress" => array(
+                        "type" => "none", "message" => "",       		
+                    ),
+                ), 
+            );
+            $form['settings']['action']['tampers']['submit'] = array(
+                '#type' => 'submit',
+                '#value' => t('apply'),
+                '#submit' => array('commerce_up_form_action_tamper'),
+                '#ajax' => array(
+                    'callback' => 'commerce_up_form_result_update',
+                    'wrapper' => 'result_wrapper',
+                    "progress" => array(
+                        "type" => "none", "message" => "",       		
+                    ),
+                ), 
+            );
+    }
+    
+        $form['settings']['result'] = array(
+            '#tree' => TRUE,
+            '#prefix' => '<div id="result_wrapper"><h2>'.t('Result').'</h2>',
+            '#suffix' => '</div>',
+        );
+        if(isset($form_state['list']) && count($form_state['list']['products']) && $form_state['result_type']['key']!='get_list') {
+            $form['settings']['result']['header'] = array(
+                '#markup' => '<h3>'.$form_state['result_type']['title'].'</h3>',
+            );
+            $products = $form_state['result_type']['key'] == 'del_list' ? $form_state['list']['del_products'] : $form_state['list']['products'];
+            foreach($products AS $pid => $product) {
+                if(isset($form_state['list']['result'][$pid]) && $form_state['list']['result'][$pid]!='') {
+                    $form['settings']['result']['items'][$pid]['title'] = array(
+                        '#markup' => "{$product->title} ({$product->sku})<br>{$form_state['list']['result'][$pid]}<hr>",
+                    );
+                }
+
+            }
+        } else {
+            $form['settings']['result']['items']['empty'] = array(
+                '#markup' => t("empty result"),
+            );
+        } 
+        return $form;
+    }
+    /* change single product */
+    function commerce_up_form_change_field_product_form($form,&$form_state) {
+        $pid = $form_state['clicked_button']['#product_index'];
+        if($product = $form_state['list']['products'][(int)$pid]) {
+            $form_state['result_type'] = array('title' => t('Change single product'),'key' => 'single');
+            $field = $form_state['values']['settings']['product_list']['thead'][1];
+            $old_values = FALSE;
+            if(isset($product->{$field}) && isset($product->{$field}['und'])) {
+                $old_values = $product->{$field}[LANGUAGE_NONE];
+            }
+            $product->{$field} = $form_state['values']['settings']['product_list']['tbody'][$pid]['field'][$field];
+            $new_values = $product->{$field}[LANGUAGE_NONE];
+            commerce_product_save($product);
+            $flable = $form['settings']['product_list']['thead'][1]['#options'][$field];
+            $str = $flable.': '.json_encode($old_values).' => '.json_encode($new_values);
+            $form_state['list']['result'][(int)$pid] = $str; 
+            $log = t('Change single product').' :'."{$product->title} ({$product->sku})<br>".$str;
+            watchdog(
+                'commerce_up',
+                '%log',
+                array('log' => $log),
+                WATCHDOG_INFO
+            );
+            $form_state['rebuild'] = TRUE;
+        }
+        //debug($form_state['values']['settings']['product_list']['tbody'][$pid]['field']);
+    }
+
+    /* add filters field  */
+    function commerce_up_form_add_field($form,&$form_state) {
+        
+        $form_state['filters'][] = array(
+            'fname' => '0',
+        );
+        $form_state['rebuild'] = TRUE;
+    }
+    /* update filters block on form */
+    function commerce_up_form_filters_update($form,&$form_state) {
+        return $form['settings']['filters']['table'];
+    }
+    /* delete filters field  */
+    function commerce_up_form_filter_del($form, &$form_state){
+        if(isset($form_state['filters'][$form_state['clicked_button']['#filter_index']])) unset($form_state['filters'][$form_state['clicked_button']['#filter_index']]);
+        $form_state['rebuild'] = TRUE;
+    }
+    
+    /* returns the operator field and the value field for the filter string */
+    function commerce_up_form_filters_elements($fname) {
+        $operators = array(
+            'eq' => t('equally'),
+            'nq' => t('not equal'),
+            'in' => t('contains'),
+            'st' => t('beginning with'),
+            'en' => t('ending')
+        );
+        if($fname) {
+            $finfo = field_info_field($fname);
+            if($fname == 'type') {
+                $val_options = db_select('commerce_product_type', 'c')
+                ->fields('c',array('type','name'))
+                ->orderBy('c.name','ASC')
+                ->execute()->fetchAllKeyed();
+                $val_type = 'select';
+                $operators = array(
+                    'eq' => t('equally'),
+                    'nq' => t('not equal'),
+                ); 
+            } elseif($fname == 'title' OR $fname == 'sku') {
+                $val_options = FALSE;
+                $val_type = 'textfield';
+            } elseif($fname == 'status') {
+                $val_options = array(0 => t('disabled'), 1 => t('enabled'));
+                $val_type = 'select';
+                $operators = array(
+                    'eq' => t('equally'),
+                    'nq' => t('not equal'),
+                );
+            } else {
+                switch ($finfo['type']) {
+                    case 'taxonomy_term_reference':
+                        $vid = db_select('taxonomy_vocabulary','t')
+                        ->fields('t',array('vid'))
+                        ->condition('t.machine_name',$finfo['settings']['allowed_values'][0]['vocabulary'])
+                        ->execute()->fetchField();
+                        $val_options = db_select('taxonomy_term_data','t')
+                        ->fields('t',array('tid','name'))
+                        ->condition('t.vid',(int)$vid)
+                        ->orderBy('t.name','ASC')
+                        ->execute()->fetchAllKeyed();
+                        $val_type = 'select';
+                        $operators = array(
+                            'eq' => t('equally'),
+                            'nq' => t('not equal'),
+                        );
+                    break;
+                    case 'list_integer':
+                    case 'list_text':
+                    case 'list_boolean':
+                    case 'options_onoff':
+                    case 'options_select':
+                        $val_options = list_allowed_values($finfo);
+                        $val_type = 'select';
+                        $operators = array(
+                            'eq' => t('equally'),
+                            'nq' => t('not equal'),
+                        );
+                    break;
+                    case 'number_integer':
+                    case 'number_float':
+                    case 'number_decimal':
+                    case 'commerce_price':
+                        $val_options = FALSE;
+                        $val_type = 'textfield';
+                        $operators = array(
+                            'eq' => t('equally'),
+                            'nq' => t('not equal'),
+                            'gt' => t('larger'),
+                            'lt' => t('less')
+                        );
+                    break;
+                    case 'datetime':
+                        $val_options = FALSE;
+                        $val_type = 'date_popup';
+                        $operators = array(
+                            'eq' => t('equally'),
+                            'nq' => t('not equal'),
+                            'st' => t('beginning with'),
+                            'en' => t('ending')
+                        );
+                    break;
+
+                    default:
+                        $val_options = FALSE;
+                        $val_type = 'textfield';
+                        break;
+                }
+            }
+            $result = array(
+                'operator' => array(
+                    '#type' => 'select',
+                    '#options' => $operators,
+                    '#prefix' => '<td>',
+                    '#suffix' => '</td>',
+                ),
+                'value' => array(
+                    '#type' => $val_type,
+                    '#options' => $val_options,
+                    '#prefix' => '<td>',
+                    '#suffix' => '</td>',   
+                ),
+            );
+            if(!$val_options) unset($result['value']['#options']);
+            if($val_type == 'date_popup') {
+                $result['value']['#date_format'] = 'd.m.Y';
+                $result['value']['#date_label_position'] = 'none';
+                $result['value']['#description'] = '';
+            }
+            return  $result;
+        } else {
+            $result = array(
+                'operator' => array(
+                    '#type' => 'select',
+                    '#options' => $operators,
+                    '#prefix' => '<td>',
+                    '#suffix' => '</td>',
+                ),
+                'value' => array(
+                    '#type' => 'textfield',
+                    '#prefix' => '<td>',
+                    '#suffix' => '</td>',
+                ),
+            );
+            return  $result;
+        }
+    }
+    /* returns an array of product objects based on specified filters */
+    function commerce_up_form_get_list($form,&$form_state) {
+        $form_state['values']['settings']['action'] = 0;
+        unset($form_state['input']['settings']['action']['select']);
+        if(isset($form['settings']['product_list']['thead'])) {
+            form_set_value($form['settings']['product_list']['thead'][1],0,$form_state);
+        }
+        $pids = commerce_up_form_get_filtered_pids($form_state);
+        $form_state['result_type'] = array('title' => t('product list for update'),'key' => 'get_list');
+        $form_state['list']['products'] = commerce_product_load_multiple($pids);
+        foreach($form_state['list']['products'] AS $pid => $product) {
+            $form_state['list']['result'][$pid] = '';
+        }
+        $form_state['rebuild'] = TRUE;
+    }
+    /* submit function - turn off selected products */
+    function commerce_up_form_action_disable($form,&$form_state) {
+        if(isset($form_state['list'])) {
+            $form_state['result_type'] = array('title' => t('Disable products'),'key' => 'on_list');
+            $logs[] = t('Disable products:');
+            $pid_list = array();
+            foreach($form_state['values']['settings']['product_list']['tbody'] AS $product_id => $arr) {
+                if($arr['checkbox']) {
+                    $pid_list[] = $product_id;
+                }
+            }
+            foreach($pid_list AS $pid) {
+                if((int)$pid && $product = $form_state['list']['products'][(int)$pid]) {
+                    $status = $product->status ? 'on' : 'off';
+                    $product->status = 0;
+                    commerce_product_save($product);
+                    $form_state['list']['result'][(int)$pid] = t("product status").': '.$status.'  => off';
+                    $logs[] = "{$product->title} ({$product->sku})"; 
+                }
+            }
+            $log_str = implode('<br>',$logs);
+            watchdog(
+                'commerce_up',
+                '%log',
+                array('log' => $log_str),
+                WATCHDOG_INFO
+            );
+        }
+        $form_state['rebuild'] = TRUE;
+    }
+    /* submit function - turn on selected products */
+    function commerce_up_form_action_enable($form,&$form_state) {
+        if(isset($form_state['list'])) {
+            $form_state['result_type'] = array('title' => t('Enable products'),'key' => 'on_list');
+            $logs[] = t('Enable products:');
+            $pid_list = array();
+            foreach($form_state['values']['settings']['product_list']['tbody'] AS $product_id => $arr) {
+                if($arr['checkbox']) {
+                    $pid_list[] = $product_id;
+                }
+            }
+            foreach($pid_list AS $pid) {
+                if((int)$pid && $product = $form_state['list']['products'][(int)$pid]) {
+                    $status = $product->status ? 'on' : 'off';
+                    $product->status = 1;
+                    commerce_product_save($product);
+                    $form_state['list']['result'][(int)$pid] = t('product status') . ": {$status} => on"; 
+                    $logs[] = "{$product->title} ({$product->sku})"; 
+                }
+            }
+            $log_str = implode('<br>',$logs);
+            watchdog(
+                'commerce_up',
+                '%log',
+                array('log' => $log_str),
+                WATCHDOG_INFO
+            );
+        }
+        $form_state['rebuild'] = TRUE;
+    }
+    /* submit function - delete selected products */
+    function commerce_up_form_action_delete($form,&$form_state) {
+        if(isset($form_state['list'])) {
+            $form_state['result_type'] = array('title' => t('Delete products'),'key' => 'del_list');
+            $logs[] = t('Delete products:');
+            $pid_list = array();
+            foreach($form_state['values']['settings']['product_list']['tbody'] AS $product_id => $arr) {
+                if($arr['checkbox']) {
+                    $pid_list[] = $product_id;
+                }
+            }
+            foreach($pid_list AS $pid) {
+                if((int)$pid && $product = $form_state['list']['products'][(int)$pid]) {
+                    if(commerce_product_can_delete($product)) {
+                        commerce_product_delete($pid);
+                        unset($form_state['list']['products'][$pid]);
+                        $form_state['list']['del_products'][$pid] = $product;
+                        $form_state['list']['result'][$pid] = t("product removed");
+                        $logs[] = "{$product->title} ({$product->sku}) - " . t("product removed"); 
+                    } else {
+                        $form_state['list']['del_products'][$pid] = $product;
+                        $form_state['list']['result'][$pid] = t("the product cannot be deleted because it refers to items in the order or has other relationships"); 
+                        $logs[] = "{$product->title} ({$product->sku}) - " . t("the product cannot be deleted because it refers to items in the order or has other relationships");  
+                    }
+                }          
+            }
+            $log_str = implode('<br>',$logs);
+            watchdog(
+                'commerce_up',
+                '%log',
+                array('log' => $log_str),
+                WATCHDOG_INFO
+            );
+        }
+        $form_state['rebuild'] = TRUE;
+    }
+    /* submit function - change field values of selected products */
+    function commerce_up_form_action_tamper($form,&$form_state) {
+        if(isset($form_state['list'])) {
+            $form_state['result_type'] = array('title' => t('Change products'),'key' => 'chng_list');
+            $logs[] = t('Change products:');
+            $arr_fields = array();
+            foreach($form_state['values']['settings']['action']['tampers']['table']['item'] AS $num => $arr) {
+                if($arr['fname'] && $arr['operator']) {
+                    if($arr['operator']!='del' AND !$arr['val']) {
+
+                    } else {
+                        $arr_fields[] = array(
+                            'flabel' => $form['settings']['action']['tampers']['table']['item'][$num]['fname']['#options'][$arr['fname']],
+                            'fname' => $arr['fname'],
+                            'operator' => $arr['operator'],
+                            'multi' => isset($arr['multifield']),
+                            'delta' => isset($arr['multifield']) ? $arr['multifield'] : 0,
+                            'value' => isset($arr['val']) ? $arr['val'] : NULL,
+                        );
+                    }
+
+                }
+            }
+            $pid_list = array();
+            foreach($form_state['values']['settings']['product_list']['tbody'] AS $product_id => $arr) {
+                if($arr['checkbox']) {
+                    $pid_list[] = $product_id;
+                }
+            }
+            foreach($pid_list AS $pid) {
+                if((int)$pid && $product = $form_state['list']['products'][(int)$pid]) {
+                    $result = array();
+                    foreach($arr_fields AS $arr_field) {
+                        if(isset($product->{$arr_field['fname']})) {
+                            $change = commerce_up_form_tamper_change_product($product,$arr_field);
+                            $product = $change['product'];
+                            $result[] = "{$arr_field['flabel']}: ".t('changed').": {$change['old_value']} => {$change['new_value']}";
+                            commerce_product_save($product);
+                        } else {
+                            $result[] = "{$arr_field['flabel']}: ".t("no field");
+                        }
+                    }
+                    $form_state['list']['result'][$pid] = implode('<br>',$result);
+                    $logs[] = "{$product->title} ({$product->sku}):<br>" . implode('<br>',$result);
+                }
+            }
+            $log_str = implode('<br>',$logs);
+            watchdog(
+                'commerce_up',
+                '%log',
+                array('log' => $log_str),
+                WATCHDOG_INFO
+            );
+        }
+        $form_state['rebuild'] = TRUE;
+    }
+    /* changing the selected product according to the specified option (field, operator, value) */
+    function commerce_up_form_tamper_change_product($product = NULL,$options = array()) {
+        $finfo = field_info_field($options['fname']);
+        $finst = field_info_instance('commerce_product', $options['fname'], $finfo['bundles']['commerce_product'][0]);
+        switch($finfo['type']) {
+            case 'taxonomy_term_reference':
+                $val_type = 'tid';
+            break;
+            case 'commerce_price':
+                $val_type = 'amount';
+            break;
+            case 'file':
+            case 'img':
+                $val_type = 'fid';
+            break;
+            default:
+                $val_type = 'value';
+            break;
+        }
+        if($options['operator'] == 'chg' OR $options['operator'] == 'fkr') {
+            $old_value = $product->{$options['fname']}[LANGUAGE_NONE][$options['delta']][$val_type];
+            if($val_type=='amount') $old_value = $old_value * 0.01;
+            if($val_type=='tid') $old_value = taxonomy_term_load($old_value)->name;
+            if($options['operator'] == 'chg') {
+                $product->{$options['fname']}[LANGUAGE_NONE][$options['delta']][$val_type] = $options['value'];
+                if($val_type=='amount') $product->{$options['fname']}[LANGUAGE_NONE][$options['delta']][$val_type] = $product->{$options['fname']}[LANGUAGE_NONE][$options['delta']][$val_type] * 100;
+            } else {
+                $product->{$options['fname']}[LANGUAGE_NONE][$options['delta']][$val_type] = $product->{$options['fname']}[LANGUAGE_NONE][$options['delta']][$val_type] * (float)$options['value'];
+            }
+            $new_value = $product->{$options['fname']}[LANGUAGE_NONE][$options['delta']][$val_type];
+            if($val_type=='amount') $new_value = $new_value * 0.01;
+            if($val_type=='tid') $new_value = taxonomy_term_load($new_value)->name;
+            return array('product' => $product, 'old_value' => $old_value, 'new_value' => $new_value);
+        } elseif($options['operator'] == 'del') {
+            if($finst['required']) {
+                if($options['multi']) {
+                    if(count($product->{$options['fname']}[LANGUAGE_NONE])>1) {
+                        $old_value = $product->{$options['fname']}[LANGUAGE_NONE][$options['delta']][$val_type];
+                        if($val_type=='amount') $old_value = $old_value * 0.01;
+                        if($val_type=='tid') $old_value = taxonomy_term_load($old_value)->name;
+                        unset($product->{$options['fname']}[LANGUAGE_NONE][$options['delta']]);
+                        $new_value = t('empty'); 
+                    } elseif(count($product->{$options['fname']}[LANGUAGE_NONE])==1) {
+                        $old_value = isset($product->{$options['fname']}[LANGUAGE_NONE][$options['delta']][$val_type]) ? $product->{$options['fname']}[LANGUAGE_NONE][$options['delta']][$val_type] : t('empty');
+                        $new_value = t('it is not possible to delete a single value of a required field');
+                    } else {
+                        $old_value = $product->{$options['fname']}[LANGUAGE_NONE][$options['delta']][$val_type];
+                        $new_value = t('it is not possible to delete the values of a required field');
+                    }
+                } else {
+                    $old_value = $product->{$options['fname']}[LANGUAGE_NONE][$options['delta']][$val_type];
+                    $new_value = t('it is not possible to delete the values of a required field');
+                }
+            } else {
+                $old_value = $product->{$options['fname']}[LANGUAGE_NONE][$options['delta']][$val_type];
+
+                if(count($product->{$options['fname']}[LANGUAGE_NONE]) == 1) {
+                    $product->{$options['fname']} = NULL;
+                } else {
+                    unset($product->{$options['fname']}[LANGUAGE_NONE][$options['delta']]);
+                }
+                $new_value = t('empty');
+            }
+            if($val_type=='amount') $old_value = $old_value * 0.01;
+            if($val_type=='tid') $old_value = taxonomy_term_load($old_value)->name;
+            return array('product' => $product, 'old_value' => $old_value, 'new_value' => $new_value);
+        } else {
+            return array('product' => $product, 'old_value' => '', 'new_value' => $options['value']);
+        }
+    }
+    /* updating the base block of the form */
+    function commerce_up_form_list_update($form,&$form_state) {
+        return $form['settings'];
+    }
+    /* updating the product list block of the form */
+    function commerce_up_form_product_list_update($form,&$form_state) {
+        return $form['settings']['product_list'];
+    }
+    /* updating the action block of the form */
+    function commerce_up_form_action_update($form,&$form_state) {
+        return $form['settings']['action'];      
+    }
+    /* updating the result block of the form */
+    function commerce_up_form_result_update($form,&$form_state) {
+        return $form['settings']['result'];      
+    } 
+    /* open edit from for product */
+    function commerce_up_form_edit_product_form($form,&$form_state) {
+        $form_state['edit_product'] = (int)$form_state['clicked_button']['#product_index'];
+        $form_state['rebuild'] = TRUE;
+    }
+
+    /* returns the elements of the operator field and the value field for the change string  */
+    function commerce_up_form_tampers_elements($fname) {
+        $operators = array(
+            'chg' => t('change value'),
+            'del' => t('delete value'),
+            'fkr' => t('factor'),
+        );
+        if($fname) {
+            $finfo = field_info_field($fname);
+            $finst = field_info_instance('commerce_product', $fname, $finfo['bundles']['commerce_product'][0]);
+            
+            if(strpos($fname,'field_')===false) {
+                switch ($fname) {
+                    default:
+                        $val_options = FALSE;
+                        $val_type = 'textfield';
+                        break;
+                }
+            } else {
+                switch ($finfo['type']) {
+                    case 'taxonomy_term_reference':
+                        $vid = db_select('taxonomy_vocabulary','t')
+                        ->fields('t',array('vid'))
+                        ->condition('t.machine_name',$finfo['settings']['allowed_values'][0]['vocabulary'])
+                        ->execute()->fetchField();
+                        $val_options = db_select('taxonomy_term_data','t')
+                        ->fields('t',array('tid','name'))
+                        ->condition('t.vid',(int)$vid)
+                        ->orderBy('t.name','ASC')
+                        ->execute()->fetchAllKeyed();
+                        $val_type = 'select';
+                        $operators = array(
+                            'chg' => t('change value'),
+                            'del' => t('delete value'),
+                        );
+                    break;
+                    case 'list_integer':
+                    case 'list_text':
+                    case 'list_boolean':
+                    case 'options_onoff':
+                    case 'options_select':
+                        $val_options = list_allowed_values($finfo);
+                        $val_type = 'select';
+                        $operators = array(
+                            'chg' => t('change value'),
+                            'del' => t('delete value'),
+                        );
+                    break;
+                    case 'datetime':
+                        $val_options = FALSE;
+                        $val_type = 'date_popup';
+                        $operators = array(
+                            'chg' => t('change value'),
+                            'del' => t('delete value'),
+                        );
+                    break;  
+                    case 'number_integer':
+                    case 'number_float':
+                    case 'number_decimal':
+                        $val_options = FALSE;
+                        $val_type = 'textfield';
+                    break;
+                    case 'image':
+                    case 'file':
+                        $val_type = 'file';
+                        $val_options = FALSE;
+                        $operators = array(
+                            'del' => t('delete value'),
+                        );
+                    break;
+                    default:
+                        $val_options = FALSE;
+                        $val_type = 'textfield';
+                        $operators = array(
+                            'chg' => t('change value'),
+                            'del' => t('delete value'),
+                        );
+                        break;
+                }
+            }
+            array_unshift($operators, '-');
+            $result = array(
+                'operator' => array(
+                    '#type' => 'select',
+                    '#options' => $operators,
+                    '#prefix' => '<td>',
+                    '#suffix' => '</td>',
+                    '#ajax' => array(
+                        'callback' => 'commerce_up_form_tampers_update',
+                        'wrapper' => "settings_tampers_wrapper",
+                        "progress" => array(
+                            "type" => "none", "message" => "",       		
+                        ),
+                    ),
+                ),
+                'value' => array(
+                    '#type' => $val_type,
+                    '#options' => $val_options,
+                    '#prefix' => '<td>',
+                    '#suffix' => '</td>',    
+                ),
+            );
+            if($finfo['cardinality'] == 1) {
+                $result['multifield'] = false;
+                if($finst['required']) {
+                    $result['operator']['#description'] = '<span>* '.t('required field').'</span>';
+                    unset($result['operator']['#options']['del']);
+                }
+
+            } else {
+                if($finst['required']) {
+                    $result['operator']['#description'] = '<span>* '.t('required field').'</span>';
+                }
+                $max_delta = db_query("SELECT max(delta) FROM {field_data_".$fname."}")->fetchField();
+                $result['multifield'] = array(
+                    '#type' => 'select',
+                    '#title' => t('position'),
+                    '#options' => range(0,$max_delta),
+                    '#description' => 'multi values field',
+                    '#suffix' => '</td>',
+                );
+                unset($result['operator']['#suffix']);
+            }
+            if(!$val_options) unset($result['value']['#options']);
+            if($val_type == 'date_popup') {
+                $result['value']['#date_format'] = 'd.m.Y';
+                $result['value']['#date_label_position'] = 'none';
+                $result['value']['#description'] = '';
+            } 
+            return  $result;
+        } else {
+            array_unshift($operators, '-');
+            $result = array(
+                'operator' => array(
+                    '#type' => 'select',
+                    '#options' => $operators,
+                    '#prefix' => '<td>',
+                    '#suffix' => '</td>',
+                    '#ajax' => array(
+                        'callback' => 'commerce_up_form_tampers_update',
+                        'wrapper' => "settings_tampers_wrapper",
+                        "progress" => array(
+                            "type" => "none", "message" => "",       		
+                        ),
+                    ),
+                ),
+                'value' => array(
+                    '#type' => 'textfield',
+                    '#prefix' => '<td>',
+                    '#suffix' => '</td>',
+    
+                ),
+            );
+        }
+    }
+    /* updating the block  of the form */
+    function commerce_up_form_tampers_update($form,&$form_state) {
+        return $form['settings']['action']['tampers']['table'];      
+    }
+    /* updates the product change block */
+    function commerce_up_form_tamper_del($form,&$form_state) {
+        if(isset($form_state['tampers'][$form_state['clicked_button']['#tamper_index']])) unset($form_state['tampers'][$form_state['clicked_button']['#tamper_index']]);
+        $form_state['rebuild'] = TRUE;
+    }
+    /* adds an empty line in the product change block */
+    function commerce_up_form_tamper_add($form,&$form_state) {
+        $form_state['tampers'][] = array(
+            'fname' => '0',
+        );
+        $form_state['rebuild'] = TRUE;
+    }
+    /* returns a list of fields allowed for the selected products */
+    function commerce_up_form_get_tamper_field_list($form_state) {
+        $pids = commerce_up_form_get_filtered_pids($form_state);     
+        $arr_res = array();
+        if(count($pids)) {
+            $q = "SELECT field_name,data FROM {field_config_instance} WHERE bundle IN 
+            (SELECT type FROM {commerce_product} WHERE product_id IN (".implode(',',$pids).")) GROUP BY field_name";
+            $fields = db_query($q)->fetchAll();
+            foreach($fields AS $row) {
+                $arr_res[$row->field_name] = unserialize($row->data)['label'];
+            }
+        }
+        return $arr_res;
+    }
+    /* returns an array of product IDs based on specified filters */
+    function commerce_up_form_get_filtered_pids($form_state) {
+        if(isset($form_state['values'])) {
+            if(isset($form_state['values']['settings']['filters']['table']['item'])) {
+                $arr_filters = array();
+                foreach($form_state['values']['settings']['filters']['table']['item'] AS $key => $arr) {
+                    if($arr['fname'] != '0'){
+                        $arr_filters[] = $arr;
+                    }
+                }
+                if(count($arr_filters)) {
+                    $where = array();
+                    foreach($arr_filters AS $farr) {
+                        if($farr['fname']=='type' OR $farr['fname']=='title' OR $farr['fname']=='sku' OR $farr['fname']=='status') {
+                            $where[] = $farr['fname'].commerce_up_form_get_filter_condition(($farr['fname'] == 'status' ? 'number_integer' : 'text'),$farr['value'],$farr['operator']);
+                        } else {
+                            $finfo = field_info_field($farr['fname']);
+                            $table = 'field_data_' . $farr['fname'];
+                            switch($finfo['type']){
+                                case 'commerce_price':
+                                    $column = $farr['fname'].'_amount';
+                                break;
+                                case 'taxonomy_term_reference':
+                                    $column = $farr['fname'].'_tid';
+                                break;
+                                default:
+                                    $column = $farr['fname'].'_value';
+                                break;
+                            }
+                            $where[] = "product_id IN (SELECT entity_id FROM {".$table."} WHERE ".$column.commerce_up_form_get_filter_condition($finfo['type'],$farr['value'],$farr['operator']).")";
+
+                        }
+                                            }
+                    if(count($where)) {
+                        $conditions = ' WHERE '.implode(' AND ',$where);
+                    } else {
+                        $conditions = '';
+                    }
+                    $q = "SELECT product_id FROM {commerce_product}".$conditions;
+                    $pids = db_query($q)->fetchCol();
+                    return $pids;
+                } else { 
+                    return array();
+                }
+            } else {
+                return array();
+            }
+        } else { 
+            return array();
+        }
+    }
+    /* return condition for the query based on the field type, operator and field value. */
+    function commerce_up_form_get_filter_condition($type,$value,$operator) {
+        switch($type) {
+            case 'commerce_price':
+                $value = $value*100;
+                switch($operator){
+                    case 'eq':
+                        return '='.(int)$value;
+                    break;
+                    case 'nq':
+                        return '<>'.(int)$value;
+                    break;
+                    case 'gt':
+                        return '>'.(int)$value;
+                    break;
+                    case 'lt':
+                        return '<'.(int)$value;
+                    break;
+                }
+            break;
+            case 'number_integer':
+            case 'taxonomy_term_reference':
+                switch($operator){
+                    case 'eq':
+                        return '='.(int)$value;
+                    break;
+                    case 'nq':
+                        return '<>'.(int)$value;
+                    break;
+                    case 'gt':
+                        return '>'.(int)$value;
+                    break;
+                    case 'lt':
+                        return '<'.(int)$value;
+                    break;
+                }
+            case 'number_float':
+            case 'number_decimal':
+                switch($operator){
+                    case 'eq':
+                        return '='.(float)$value;
+                    break;
+                    case 'nq':
+                        return '<>'.(float)$value;
+                    break;
+                    case 'gt':
+                        return '>'.(float)$value;
+                    break;
+                    case 'lt':
+                        return '<'.(float)$value;
+                    break;
+                }
+            break;
+            default: 
+                switch($operator){
+                    case 'eq':
+                        return " LIKE '".$value."'";
+                    break;
+                    case 'nq':
+                        return " NOT LIKE '".$value."'";
+                    break;
+                    case 'in':
+                        return " LIKE '%".$value."%'";
+                    break;
+                    case 'st':
+                        return " LIKE '".$value."%'";
+                    break;
+                    case 'en':
+                        return " LIKE '%".$value."'";
+                    break;
+                }
+            break;
+        }
+    }
+
+
+    

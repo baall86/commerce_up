@@ -1,0 +1,328 @@
+# $Id$
+#
+# Russian translation of Drupal (general)
+# Copyright YEAR NAME <EMAIL@ADDRESS>
+# Generated from files:
+#  commerce_up.module: n/a
+#  commerce_up.info: n/a
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"POT-Creation-Date: 2020-10-04 20:48+0300\n"
+"PO-Revision-Date: 2020-10-04 20:48+0300\n"
+"Last-Translator: NAME <EMAIL@ADDRESS>\n"
+"Language-Team: Russian <EMAIL@ADDRESS>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=((((n%10)==1)&&((n%100)!=11))?(0):(((((n%10)>=2)&&((n%10)<=4))&&(((n%100)<10)||((n%100)>=20)))?(1):2));\n"
+
+#: commerce_up.module:19
+msgid "Purpose"
+msgstr "Назначение"
+
+#: commerce_up.module:21
+msgid "The module is designed to facilitate the work on changing product sets."
+msgstr "Модуль предназначен для облегчения работы по изменению наборов товаров."
+
+#: commerce_up.module:23
+msgid "Application"
+msgstr "Применение"
+
+#: commerce_up.module:25
+msgid "Use filters to get a list of products. To change a specific product field, select that field from the list of suggested fields and make your changes. To change all products from the list or selected products, fill in the required action, configure it, and apply. All actions on goods are recorded in the system log."
+msgstr "С помощью фильтров получите список продуктов. Для изменения конкретного поля продукта, выберите это поле из списка предложенных полей и внесите изменения. Для изменения всех товаров из списка или выделенных товаров, вубурите нужное действие, настройте его, и примените. Все действия на товарами записываются в лог системы."
+
+#: commerce_up.module:40
+msgid "product type"
+msgstr "тип товара"
+
+#: commerce_up.module:40;183
+msgid "product title"
+msgstr "заголовок продукта"
+
+#: commerce_up.module:40
+msgid "product sku"
+msgstr "артикул продукта"
+
+#: commerce_up.module:40;688;718
+msgid "product status"
+msgstr "статус продукта"
+
+#: commerce_up.module:70
+msgid "Filters for forming a list of products"
+msgstr ""
+"Фильтры для формирования списка "
+"продуктов"
+
+#: commerce_up.module:74;366
+msgid "Field"
+msgstr "Поле"
+
+#: commerce_up.module:75;367
+msgid "Operator"
+msgstr "Оператор"
+
+#: commerce_up.module:76;368
+msgid "Value"
+msgstr "Значение"
+
+#: commerce_up.module:131
+msgid "add fulter"
+msgstr "добавить фильтр"
+
+#: commerce_up.module:143
+msgid "get a list of products"
+msgstr "получить продукты"
+
+#: commerce_up.module:149
+msgid "loading"
+msgstr "загрузка"
+
+#: commerce_up.module:171
+msgid "select all"
+msgstr "выделить все"
+
+#: commerce_up.module:172
+msgid "deselect all"
+msgstr "сняить выделения"
+
+#: commerce_up.module:192
+msgid "field for change"
+msgstr "изменяемое поле"
+
+#: commerce_up.module:207
+msgid "actions"
+msgstr "действия"
+
+#: commerce_up.module:241
+msgid "Product changed"
+msgstr "продукт изменен"
+
+#: commerce_up.module:246
+msgid "save"
+msgstr "сохранить"
+
+#: commerce_up.module:269
+msgid "go to editor"
+msgstr "перейти в редактор"
+
+#: commerce_up.module:281
+msgid "Product list action"
+msgstr "Действия над списком продуктов"
+
+#: commerce_up.module:288
+msgid "change products"
+msgstr "изменить продукты"
+
+#: commerce_up.module:289
+msgid "disable products"
+msgstr "отключить продукты"
+
+#: commerce_up.module:290
+msgid "enable products"
+msgstr "включить продукты"
+
+#: commerce_up.module:291
+msgid "delete products"
+msgstr "удалить продукты"
+
+#: commerce_up.module:306
+msgid "Selected products will be deleted, continue?"
+msgstr ""
+"Выбранные продукты будут удалены, "
+"продолжить?"
+
+#: commerce_up.module:310
+msgid "yes, delete"
+msgstr "да, удалить"
+
+#: commerce_up.module:324
+msgid "Selected products will be enabled, continue?"
+msgstr ""
+"Выбранные продукты будут включены, "
+"продолжить?"
+
+#: commerce_up.module:328
+msgid "yes, enable"
+msgstr "да, включить"
+
+#: commerce_up.module:340
+msgid "Selected products will be disabled, continue?"
+msgstr ""
+"Выбранные продукты будут отключены, "
+"продолжить?"
+
+#: commerce_up.module:344
+msgid "yes, disable"
+msgstr "да, отключить"
+
+#: commerce_up.module:433
+msgid "add tamper"
+msgstr "добавить действие"
+
+#: commerce_up.module:445
+msgid "apply"
+msgstr "применить"
+
+#: commerce_up.module:459
+msgid "Result"
+msgstr "Результат"
+
+#: commerce_up.module:477
+msgid "empty result"
+msgstr "пустой результат"
+
+#: commerce_up.module:486;498
+msgid "Change single product"
+msgstr "Изменен отдельный продукт"
+
+#: commerce_up.module:531;546;556;573;585;596;606
+msgid "equally"
+msgstr "равно"
+
+#: commerce_up.module:532;547;557;574;586;597;607
+msgid "not equal"
+msgstr "не равно"
+
+#: commerce_up.module:533
+msgid "contains"
+msgstr "содержит"
+
+#: commerce_up.module:534;608
+msgid "beginning with"
+msgstr "начиная с"
+
+#: commerce_up.module:535;609
+msgid "ending"
+msgstr "заканчивая"
+
+#: commerce_up.module:553
+msgid "disabled"
+msgstr "отключено"
+
+#: commerce_up.module:553
+msgid "enabled"
+msgstr "включено"
+
+#: commerce_up.module:598
+msgid "larger"
+msgstr "болше"
+
+#: commerce_up.module:599
+msgid "less"
+msgstr "меньше"
+
+#: commerce_up.module:665
+msgid "product list for update"
+msgstr "список продуктов для обновления"
+
+#: commerce_up.module:675
+msgid "Disable products"
+msgstr ""
+
+#: commerce_up.module:676
+msgid "Disable products:"
+msgstr "Отключенные продукты:"
+
+#: commerce_up.module:705
+msgid "Enable products"
+msgstr "Включить продукты"
+
+#: commerce_up.module:706
+msgid "Enable products:"
+msgstr "Включенные продукты:"
+
+#: commerce_up.module:735
+msgid "Delete products"
+msgstr "Удалить продукты"
+
+#: commerce_up.module:736
+msgid "Delete products:"
+msgstr "Удаленные продукты:"
+
+#: commerce_up.module:749;750
+msgid "product removed"
+msgstr "продукт удален"
+
+#: commerce_up.module:753;754
+msgid "the product cannot be deleted because it refers to items in the order or has other relationships"
+msgstr ""
+"продукт нельзя удалить, потому что он "
+"относится к элементам в заказе или "
+"имеет другие отношения"
+
+#: commerce_up.module:771
+msgid "Change products"
+msgstr "Изменить продукты"
+
+#: commerce_up.module:772
+msgid "Change products:"
+msgstr "Измененные продукты:"
+
+#: commerce_up.module:804
+msgid "changed"
+msgstr "изменить"
+
+#: commerce_up.module:807
+msgid "no field"
+msgstr "нет поля"
+
+#: commerce_up.module:865;867;885
+msgid "empty"
+msgstr "пусто"
+
+#: commerce_up.module:868
+msgid "it is not possible to delete a single value of a required field"
+msgstr ""
+"невозможно удалить единственное "
+"значение обязательного поля"
+
+#: commerce_up.module:871;875
+msgid "it is not possible to delete the values of a required field"
+msgstr ""
+"невозможно удалить единственное "
+"значение обязательного поля"
+
+#: commerce_up.module:919;948;960;968;990
+msgid "change value"
+msgstr "изменить значение"
+
+#: commerce_up.module:920;949;961;969;983;991
+msgid "delete value"
+msgstr "удалить значение"
+
+#: commerce_up.module:921
+msgid "factor"
+msgstr "множитель"
+
+#: commerce_up.module:1021;1027
+msgid "required field"
+msgstr "обязательное поле"
+
+#: commerce_up.module:1032
+msgid "position"
+msgstr "позиция"
+
+#: commerce_up.module:499;693;723;759;815 commerce_up.info:0
+msgid "commerce_up"
+msgstr ""
+
+#: commerce_up.module:499;693;723;759;815
+msgid "%log"
+msgstr ""
+
+#: commerce_up.module:6
+msgid "Commerce products updater"
+msgstr "Модуль изменения товаров Commerce"
+
+#: commerce_up.info:0
+msgid "Set up values for list of products"
+msgstr "Изменяет или удоляет товары"
+
+#: commerce_up.info:0
+msgid "Commerce (contrib)"
+msgstr ""
+

@@ -1,0 +1,313 @@
+# $Id$
+#
+# LANGUAGE translation of Drupal (general)
+# Copyright YEAR NAME <EMAIL@ADDRESS>
+# Generated from files:
+#  commerce_up.module: n/a
+#  commerce_up.info: n/a
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"POT-Creation-Date: 2020-10-04 20:48+0300\n"
+"PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
+"Last-Translator: NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <EMAIL@ADDRESS>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+
+#: commerce_up.module:19
+msgid "Purpose"
+msgstr ""
+
+#: commerce_up.module:21
+msgid "The module is designed to facilitate the work on changing product sets."
+msgstr ""
+
+#: commerce_up.module:23
+msgid "Application"
+msgstr ""
+
+#: commerce_up.module:25
+msgid "Use filters to get a list of products. To change a specific product field, select that field from the list of suggested fields and make your changes. To change all products from the list or selected products, fill in the required action, configure it, and apply. All actions on goods are recorded in the system log."
+msgstr ""
+
+#: commerce_up.module:40
+msgid "product type"
+msgstr ""
+
+#: commerce_up.module:40;183
+msgid "product title"
+msgstr ""
+
+#: commerce_up.module:40
+msgid "product sku"
+msgstr ""
+
+#: commerce_up.module:40;688;718
+msgid "product status"
+msgstr ""
+
+#: commerce_up.module:70
+msgid "Filters for forming a list of products"
+msgstr ""
+
+#: commerce_up.module:74;366
+msgid "Field"
+msgstr ""
+
+#: commerce_up.module:75;367
+msgid "Operator"
+msgstr ""
+
+#: commerce_up.module:76;368
+msgid "Value"
+msgstr ""
+
+#: commerce_up.module:131
+msgid "add fulter"
+msgstr ""
+
+#: commerce_up.module:143
+msgid "get a list of products"
+msgstr ""
+
+#: commerce_up.module:149
+msgid "loading"
+msgstr ""
+
+#: commerce_up.module:171
+msgid "select all"
+msgstr ""
+
+#: commerce_up.module:172
+msgid "deselect all"
+msgstr ""
+
+#: commerce_up.module:192
+msgid "field for change"
+msgstr ""
+
+#: commerce_up.module:207
+msgid "actions"
+msgstr ""
+
+#: commerce_up.module:241
+msgid "Product changed"
+msgstr ""
+
+#: commerce_up.module:246
+msgid "save"
+msgstr ""
+
+#: commerce_up.module:269
+msgid "go to editor"
+msgstr ""
+
+#: commerce_up.module:281
+msgid "Product list action"
+msgstr ""
+
+#: commerce_up.module:288
+msgid "change products"
+msgstr ""
+
+#: commerce_up.module:289
+msgid "disable products"
+msgstr ""
+
+#: commerce_up.module:290
+msgid "enable products"
+msgstr ""
+
+#: commerce_up.module:291
+msgid "delete products"
+msgstr ""
+
+#: commerce_up.module:306
+msgid "Selected products will be deleted, continue?"
+msgstr ""
+
+#: commerce_up.module:310
+msgid "yes, delete"
+msgstr ""
+
+#: commerce_up.module:324
+msgid "Selected products will be enabled, continue?"
+msgstr ""
+
+#: commerce_up.module:328
+msgid "yes, enable"
+msgstr ""
+
+#: commerce_up.module:340
+msgid "Selected products will be disabled, continue?"
+msgstr ""
+
+#: commerce_up.module:344
+msgid "yes, disable"
+msgstr ""
+
+#: commerce_up.module:433
+msgid "add tamper"
+msgstr ""
+
+#: commerce_up.module:445
+msgid "apply"
+msgstr ""
+
+#: commerce_up.module:459
+msgid "Result"
+msgstr ""
+
+#: commerce_up.module:477
+msgid "empty result"
+msgstr ""
+
+#: commerce_up.module:486;498
+msgid "Change single product"
+msgstr ""
+
+#: commerce_up.module:531;546;556;573;585;596;606
+msgid "equally"
+msgstr ""
+
+#: commerce_up.module:532;547;557;574;586;597;607
+msgid "not equal"
+msgstr ""
+
+#: commerce_up.module:533
+msgid "contains"
+msgstr ""
+
+#: commerce_up.module:534;608
+msgid "beginning with"
+msgstr ""
+
+#: commerce_up.module:535;609
+msgid "ending"
+msgstr ""
+
+#: commerce_up.module:553
+msgid "disabled"
+msgstr ""
+
+#: commerce_up.module:553
+msgid "enabled"
+msgstr ""
+
+#: commerce_up.module:598
+msgid "larger"
+msgstr ""
+
+#: commerce_up.module:599
+msgid "less"
+msgstr ""
+
+#: commerce_up.module:665
+msgid "product list for update"
+msgstr ""
+
+#: commerce_up.module:675
+msgid "Disable products"
+msgstr ""
+
+#: commerce_up.module:676
+msgid "Disable products:"
+msgstr ""
+
+#: commerce_up.module:705
+msgid "Enable products"
+msgstr ""
+
+#: commerce_up.module:706
+msgid "Enable products:"
+msgstr ""
+
+#: commerce_up.module:735
+msgid "Delete products"
+msgstr ""
+
+#: commerce_up.module:736
+msgid "Delete products:"
+msgstr ""
+
+#: commerce_up.module:749;750
+msgid "product removed"
+msgstr ""
+
+#: commerce_up.module:753;754
+msgid "the product cannot be deleted because it refers to items in the order or has other relationships"
+msgstr ""
+
+#: commerce_up.module:771
+msgid "Change products"
+msgstr ""
+
+#: commerce_up.module:772
+msgid "Change products:"
+msgstr ""
+
+#: commerce_up.module:804
+msgid "changed"
+msgstr ""
+
+#: commerce_up.module:807
+msgid "no field"
+msgstr ""
+
+#: commerce_up.module:865;867;885
+msgid "empty"
+msgstr ""
+
+#: commerce_up.module:868
+msgid "it is not possible to delete a single value of a required field"
+msgstr ""
+
+#: commerce_up.module:871;875
+msgid "it is not possible to delete the values of a required field"
+msgstr ""
+
+#: commerce_up.module:919;948;960;968;990
+msgid "change value"
+msgstr ""
+
+#: commerce_up.module:920;949;961;969;983;991
+msgid "delete value"
+msgstr ""
+
+#: commerce_up.module:921
+msgid "factor"
+msgstr ""
+
+#: commerce_up.module:1021;1027
+msgid "required field"
+msgstr ""
+
+#: commerce_up.module:1032
+msgid "position"
+msgstr ""
+
+#: commerce_up.module:499;693;723;759;815 commerce_up.info:0
+msgid "commerce_up"
+msgstr ""
+
+#: commerce_up.module:499;693;723;759;815
+msgid "%log"
+msgstr ""
+
+#: commerce_up.module:6
+msgid "Commerce products updater"
+msgstr ""
+
+#: commerce_up.info:0
+msgid "Set up values for list of products"
+msgstr ""
+
+#: commerce_up.info:0
+msgid "Commerce (contrib)"
+msgstr ""
+

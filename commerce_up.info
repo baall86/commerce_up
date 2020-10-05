@@ -1,0 +1,8 @@
+name = commerce_up
+description = Set up values for list of products
+package = Commerce (contrib)
+core = 7.x
+version = «7.x-1.0»
+configure = admin/commerce/commerce_up
+dependencies[] = commerce
+files[]= commerce_up.module
