@@ -263,7 +263,6 @@
                         }
                     } else {
                         $finfo = field_info_field($change_product_field);
-                        debug($finfo);
                         $form['settings']['product_list']['tbody'][$product->product_id]['field'] = array(
                             '#markup' => t('product does not have a selected field') . '</td>'
                         );
@@ -511,7 +510,6 @@
             );
             $form_state['rebuild'] = TRUE;
         }
-        //debug($form_state['values']['settings']['product_list']['tbody'][$pid]['field']);
     }
 
     /* add filters field  */
