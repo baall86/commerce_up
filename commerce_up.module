@@ -220,6 +220,7 @@
                         '#markup' => '<td>',
                     );
                     //change field form
+                    $save_buttom = FALSE;
                     if($finst = field_info_instance('commerce_product',$change_product_field,$product->type)) {
                         $finfo = field_info_field($change_product_field);
                         if(in_array($finfo['type'],$not_support_field_type)) {
@@ -239,32 +240,53 @@
                                 $form,
                                 $form_state
                             );
-                            if(isset($form_state['list']) && $form_state['result_type']['key']=='single'
-                            && isset($form_state['list']['result'][$product->product_id]) && $form_state['list']['result'][$product->product_id]) {
-                                $form['settings']['product_list']['tbody'][$product->product_id]['result'] = array(
-                                    '#markup' => t('Product changed').'<br>',
-                                );
-                            }
-                            $form['settings']['product_list']['tbody'][$product->product_id]['change'] = array(
-                                '#type' => 'submit',
-                                '#value' => t('save'),
-                                '#suffix' => '</td>',
-                                '#name' => 'change_'.$product->product_id,
-                                '#product_index' => $product->product_id,
-                                '#submit' => array('commerce_up_form_change_field_product_form'),
-                                '#ajax' => array(
-                                    'callback' => 'commerce_up_form_product_list_update',
-                                    'wrapper' => 'settings_product_list_wrapper',
-                                    "progress" => array(
-                                        "type" => "none", "message" => '',       		
-                                    ),
-                                ),
-                            );
+                            $save_buttom = TRUE;
                         }
+                    } elseif($change_product_field=='title' OR $change_product_field=='sku') {
+                        $form['settings']['product_list']['tbody'][$product->product_id]['field'][$change_product_field] = array(
+                            '#title' => $arr_fields_tamper[$change_product_field],
+                            '#size' => 60,
+                            '#type' => 'textfield',
+                            '#required' => TRUE,
+                            '#default_value' => $product->{$change_product_field}
+                        );
+                        $save_buttom = TRUE;
+                    } elseif($change_product_field=='status') {
+                        $form['settings']['product_list']['tbody'][$product->product_id]['field'][$change_product_field] = array(
+                            '#title' => $arr_fields_tamper[$change_product_field],
+                            '#type' => 'radios',
+                            '#required' => TRUE,
+                            '#default_value' => $product->{$change_product_field},
+                            '#options' => array(0 => t('Off'), 1 => t('On'))
+                        );
+                        $save_buttom = TRUE;
                     } else {
                         $finfo = field_info_field($change_product_field);
                         $form['settings']['product_list']['tbody'][$product->product_id]['field'] = array(
                             '#markup' => t('product does not have a selected field') . '</td>'
+                        );
+                    }
+                    if($save_buttom) {
+                        if(isset($form_state['list']) && $form_state['result_type']['key']=='single'
+                        && isset($form_state['list']['result'][$product->product_id]) && $form_state['list']['result'][$product->product_id]) {
+                            $form['settings']['product_list']['tbody'][$product->product_id]['result'] = array(
+                                '#markup' => t('Product changed').'<br>',
+                            );
+                        }
+                        $form['settings']['product_list']['tbody'][$product->product_id]['change'] = array(
+                            '#type' => 'submit',
+                            '#value' => t('save'),
+                            '#suffix' => '</td>',
+                            '#name' => 'change_'.$product->product_id,
+                            '#product_index' => $product->product_id,
+                            '#submit' => array('commerce_up_form_change_field_product_form'),
+                            '#ajax' => array(
+                                'callback' => 'commerce_up_form_product_list_update',
+                                'wrapper' => 'settings_product_list_wrapper',
+                                "progress" => array(
+                                    "type" => "none", "message" => '',       		
+                                ),
+                            ),
                         );
                     }
                 } else {
@@ -295,6 +317,7 @@
                     2 => t('disable products'),
                     3 => t('enable products'),
                     4 => t('delete products'),
+                    5 => t('price update'),
                 ),
                 '#default_value' => 0,
                 '#ajax' => array(
@@ -307,7 +330,67 @@
             );
     }
     $action = isset($form_state['values']) && isset($form_state['values']['settings']['action']) ? $form_state['values']['settings']['action']['select'] : 0;
-    if($action==4) {
+    if($action==5) {
+        $form['settings']['action']['price_update']['type'] = array(
+            '#type' => 'select',
+            '#options' => array(t('get the exchange rate'),t('set the exchange rate')),
+            '#default_value' => 0,
+            '#title' => t('type of obtaining the currency rate'),
+            '#ajax' => array(
+                'callback' => 'commerce_up_form_action_update',
+                'wrapper' => "settings_action_wrapper",
+                "progress" => array(
+                    "type" => "none", "message" => "",       		
+                ),
+            ),
+        );
+        $curr_type = isset($form_state['values']) && isset($form_state['values']['settings']['action']['price_update']['type']) ? $form_state['values']['settings']['action']['price_update']['type'] : 0;
+        if($curr_type) {
+            $form['settings']['action']['price_update']['eur'] = array(
+                '#type' => 'textfield',
+                '#size' => 5,
+                '#title' => 'EUR',
+                '#description' => 'example: 99.88'
+            );
+            $form['settings']['action']['price_update']['usd'] = array(
+                '#type' => 'textfield',
+                '#size' => 5,
+                '#title' => 'USD',
+                '#description' => 'example: 99.88'
+            );
+        } else {
+            $form['settings']['action']['price_update']['date'] = array(
+                '#type' => 'date_popup',
+                '#date_format' => 'd.m.Y',
+                '#date_label_position' => 'none',
+                '#description' => '',
+                '#title' => t('on what date to get the exchange rate?'),
+                '#default_value' => date('Y-m-d H:i:s'),
+                '#date_year_range' => '-0:+0',
+                '#size' => 10,
+            );
+        }
+
+
+        $form['settings']['action']['price_update']['factor'] = array(
+            '#type' => 'textfield',
+            '#default_value' => 1.03,
+            '#title' => t('factor'),
+            '#size' => 5,
+        );
+        $form['settings']['action']['price_update']['submit'] = array(
+            '#type' => 'submit',
+            '#value' => t('update'),
+            '#submit' => array('commerce_up_form_action_price_update'),
+            '#ajax' => array(
+                'callback' => 'commerce_up_form_list_update',
+                'wrapper' => 'settings_wrapper',
+                "progress" => array(
+                    "type" => "none", "message" => "",       		
+                ),
+            ),
+        );
+    } elseif($action==4) {
         $form['settings']['action']['delete_prods']['text'] = array(
             '#markup' => '<div><b>'.t('Selected products will be deleted, continue?').'</b></div>'
         );
@@ -358,7 +441,10 @@
             ), 
         );
     } elseif($action==1) {
-        if(!isset($form_state['tampers'])) $form_state['tampers'] = array(0 => array('fname' => 0));    
+        if(!isset($form_state['tampers'])) $form_state['tampers'] = array(0 => array('fname' => 0));
+        unset($arr_fields_tamper['title']);
+        unset($arr_fields_tamper['sku']);
+        unset($arr_fields_tamper['status']);
         $form['settings']['action']['tampers']['table'] = array(
             '#tree' => TRUE,
             '#prefix' => '<div id="settings_tampers_wrapper">',
@@ -492,16 +578,24 @@
             $form_state['result_type'] = array('title' => t('Change single product'),'key' => 'single');
             $field = $form_state['values']['settings']['product_list']['thead'][1];
             $old_values = FALSE;
-            if(isset($product->{$field}) && isset($product->{$field}['und'])) {
-                $old_values = $product->{$field}[LANGUAGE_NONE];
-            }
+            if(isset($product->{$field})) {
+                if(isset($product->{$field}[LANGUAGE_NONE])) {
+                    $old_values = $product->{$field}[LANGUAGE_NONE];
+                } else {
+                    $old_values = $product->{$field};
+                }
+            } 
             $product->{$field} = $form_state['values']['settings']['product_list']['tbody'][$pid]['field'][$field];
-            $new_values = $product->{$field}[LANGUAGE_NONE];
+            if(isset($product->{$field}[LANGUAGE_NONE])) {
+                $new_values = $product->{$field}[LANGUAGE_NONE];
+            } else {
+                $new_values = $product->{$field};
+            }
             commerce_product_save($product);
             $flable = $form['settings']['product_list']['thead'][1]['#options'][$field];
             $str = $flable.': '.json_encode($old_values).' => '.json_encode($new_values);
             $form_state['list']['result'][(int)$pid] = $str; 
-            $log = t('Change single product').' :'."{$product->title} ({$product->sku})<br>".$str;
+            $log = t('Change single product').' :'."{$product->title} ({$product->sku})\n".$str;
             watchdog(
                 'commerce_up',
                 '%log',
@@ -694,7 +788,7 @@
                     $logs[] = "{$product->title} ({$product->sku})"; 
                 }
             }
-            $log_str = implode('<br>',$logs);
+            $log_str = implode('\n',$logs);
             watchdog(
                 'commerce_up',
                 '%log',
@@ -724,7 +818,7 @@
                     $logs[] = "{$product->title} ({$product->sku})"; 
                 }
             }
-            $log_str = implode('<br>',$logs);
+            $log_str = implode('\n',$logs);
             watchdog(
                 'commerce_up',
                 '%log',
@@ -760,7 +854,7 @@
                     }
                 }          
             }
-            $log_str = implode('<br>',$logs);
+            $log_str = implode('\n',$logs);
             watchdog(
                 'commerce_up',
                 '%log',
@@ -768,6 +862,88 @@
                 WATCHDOG_INFO
             );
         }
+        $form_state['rebuild'] = TRUE;
+    }
+    /* submit function - update price in RUB from USD or EUR price  */
+    function commerce_up_form_action_price_update($form,&$form_state) {
+        //debug($form_state['values']['settings']['action']['price_update']);
+        $form_state['result_type'] = array('title' => t('Update price'),'key' => 'chng_list');
+        $curr = array();
+        if($form_state['values']['settings']['action']['price_update']['type']) {
+            if((float)$form_state['values']['settings']['action']['price_update']['eur'] AND (float)$form_state['values']['settings']['action']['price_update']['usd']) {
+                $curr = array(
+                    'eur' => number_format(floatval(str_replace(",",".",strip_tags($form_state['values']['settings']['action']['price_update']['eur']))),2, '.', ''),
+                    'usd' => number_format(floatval(str_replace(",",".",strip_tags($form_state['values']['settings']['action']['price_update']['usd']))),2, '.', ''),
+                );
+            } 
+        } else {
+            if($form_state['values']['settings']['action']['price_update']['date']) {
+                $date_arr = explode('-',$form_state['values']['settings']['action']['price_update']['date']);
+                $xml = simplexml_load_file("http://www.cbr.ru/scripts/XML_daily.asp?date_req=".$date_arr[2].'/'.$date_arr[1].'/'.$date_arr[0]);
+                if(is_object($xml)) {
+                    foreach($xml->Valute as $num => $valute) {
+                        if($valute->CharCode=='EUR' OR $valute->CharCode=='USD') {
+                            $curr[(string)$valute->CharCode] = number_format(floatval(str_replace(",",".",$valute->Value)),2, '.', '');
+                        }
+                    }
+                }
+            } 
+        }
+        if(count($curr)) {
+            $factor = number_format(floatval(str_replace(",",".",$form_state['values']['settings']['action']['price_update']['factor'])),2, '.', '');
+            if(!$factor) $factor = 1;
+            $pid_list = array();
+            foreach($form_state['values']['settings']['product_list']['tbody'] AS $product_id => $arr) {
+                if($arr['checkbox']) {
+                    $pid_list[] = $product_id;
+                }
+            }
+            $logs[] = t('Update price at currencies:');
+            foreach($pid_list AS $pid) {
+                if((int)$pid && $product = $form_state['list']['products'][(int)$pid]) {
+                    $curr_options = array();
+                    $product_curr = $product->field_currency[LANGUAGE_NONE][0]['value'];
+                    $curr_price = $product->{'commerce_price_'.mb_strtolower($product_curr)}[LANGUAGE_NONE][0]['amount']*0.01;
+                    $curr_options[] = array(
+                        'flabel' => 'Price RUB',
+                        'fname' => 'commerce_price',
+                        'operator' => 'chg',
+                        'multi' => FALSE,
+                        'delta' => 0,
+                        'value' => ceil($product->{'commerce_price_'.mb_strtolower($product_curr)}[LANGUAGE_NONE][0]['amount']*$curr[$product_curr]*0.01*$factor),
+                    );
+                    $cross = $product_curr=='EUR' ? $curr['EUR']/$curr['USD'] : $curr['USD']/$curr['EUR'];
+                    $curr_options[] = array(
+                        'flabel' => 'Price '.($product_curr=='EUR' ? 'USD' : 'EUR'),
+                        'fname' => 'commerce_price_'.mb_strtolower($product_curr=='EUR' ? 'USD' : 'EUR'),
+                        'operator' => 'chg',
+                        'multi' => FALSE,
+                        'delta' => 0,
+                        'value' => round($product->{'commerce_price_'.mb_strtolower($product_curr)}[LANGUAGE_NONE][0]['amount']*$cross,0)*0.01,
+                    );
+                    $result = array();
+                    foreach($curr_options AS $option) {
+                        $change = commerce_up_form_tamper_change_product($product,$option);
+                        $result[] = "{$option['flabel']}: ".t('changed').": {$change['old_value']} => {$change['new_value']}";
+                        commerce_product_save($product);
+                    }
+                    
+                    $form_state['list']['result'][$pid] = implode('<br>',$result);
+                    $logs[] = "{$product->title} ({$product->sku}), factor: {$factor}, currency: {$product_curr} (Price in {$product_curr}: {$curr_price}), (EUR:{$curr['EUR']}; USD:{$curr['USD']}):" . '\n' . implode(PHP_EOL,$result);
+                    
+                }
+            }
+            $log_str = implode('\n',$logs);
+            watchdog(
+                'commerce_up',
+                '%log',
+                array('log' => $log_str),
+                WATCHDOG_INFO
+            );
+        } else {
+            $form_state['result_type'] = array('title' => t('Update price - no exchange rates'),'key' => 'chng_list');
+        }
+
         $form_state['rebuild'] = TRUE;
     }
     /* submit function - change field values of selected products */
@@ -813,10 +989,10 @@
                         }
                     }
                     $form_state['list']['result'][$pid] = implode('<br>',$result);
-                    $logs[] = "{$product->title} ({$product->sku}):<br>" . implode('<br>',$result);
+                    $logs[] = "{$product->title} ({$product->sku}):\n" . implode('\n',$result);
                 }
             }
-            $log_str = implode('<br>',$logs);
+            $log_str = implode('\n',$logs);
             watchdog(
                 'commerce_up',
                 '%log',
@@ -1100,6 +1276,9 @@
             foreach($fields AS $row) {
                 $arr_res[$row->field_name] = unserialize($row->data)['label'];
             }
+            $arr_res['status'] = t('Status');
+            $arr_res['title'] = t('Product title');
+            $arr_res['sku'] = t('Product sku');
         }
         return $arr_res;
     }
